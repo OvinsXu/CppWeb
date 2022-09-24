@@ -1,4 +1,4 @@
-#define WIN32_LEAN_AND_MEAN		//Windows.hºÍWinSock2.hÖĞº¯ÊıÓĞÖØµş
+#define WIN32_LEAN_AND_MEAN		//Windows.hå’ŒWinSock2.hä¸­å‡½æ•°æœ‰é‡å 
 #define _WINSOCK_DEPRECATED_NO_WARNINGS
 #define _CRT_SECURE_NO_WARNINGS
 
@@ -15,7 +15,7 @@ enum CMD {
 	CMD_ERROR
 };
 
-struct DataHeader {	//ÏûÏ¢Í·
+struct DataHeader {	//æ¶ˆæ¯å¤´
 	short cmd;
 	short dataLength;
 };
@@ -56,42 +56,41 @@ struct LogoutResult :public DataHeader
 
 
 int main() {
-	//Æô¶¯Windows socket 2.x»·¾³
+	//å¯åŠ¨Windows socket 2.xç¯å¢ƒ
 	WORD ver = MAKEWORD(2, 2);
 	WSADATA dat;
 	WSAStartup(ver, &dat);
 
-	//1. ½¨Á¢Ò»¸ösocketÌ×½Ó×Ö
+	//1. å»ºç«‹ä¸€ä¸ªsocketå¥—æ¥å­—
 	SOCKET _sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 	if (INVALID_SOCKET == _sock) {
-		printf("½¨Á¢SOCKETÊ§°Ü\n");
+		printf("å»ºç«‹SOCKETå¤±è´¥\n");
 	}
 	else {
-		printf("½¨Á¢SOCKET³É¹¦\n");
+		printf("å»ºç«‹SOCKETæˆåŠŸ\n");
 	}
 
-	//2. Á¬½Ó·şÎñÆ÷
+	//2. è¿æ¥æœåŠ¡å™¨
 	sockaddr_in _sin = {};
 	_sin.sin_family = AF_INET;
 	_sin.sin_port = htons(4567);
 	_sin.sin_addr.S_un.S_addr = inet_addr("127.0.0.1");
 
 	if (SOCKET_ERROR == connect(_sock, (sockaddr*)&_sin, sizeof(sockaddr_in))) {
-		printf("Á¬½Ó·şÎñÆ÷Ê§°Ü\n");
+		printf("è¿æ¥æœåŠ¡å™¨å¤±è´¥\n");
 	}
 	else {
-		printf("Á¬½Ó·şÎñÆ÷³É¹¦\n");
+		printf("è¿æ¥æœåŠ¡å™¨æˆåŠŸ\n");
 	}
 
 
 
 	while (true) {
-		//3. ÊäÈëÇëÇóÃüÁî
+		//3. è¾“å…¥è¯·æ±‚å‘½ä»¤
 		char cmdBuf[256] = {};
 		scanf("%s", cmdBuf);
-		//4. ´¦ÀíÇëÇóÊı¾İ
+		//4. å¤„ç†è¯·æ±‚æ•°æ®
 		if (0 == strcmp(cmdBuf, "exit")) {
-			printf("ÊÕµ½exit,ÍË³ö³ÌĞò\n");
 			break;
 		}
 		else if (0 == strcmp(cmdBuf, "login")) {
@@ -103,7 +102,7 @@ int main() {
 
 			LoginResult loginRet = {};
 			recv(_sock, (char*)&loginRet, sizeof(loginRet), 0);
-			printf("ÇëÇó½á¹û:%d\n", loginRet.result);
+			printf("è¯·æ±‚ç»“æœ:%d\n", loginRet.result);
 		}
 		else if (0 == strcmp(cmdBuf, "logout")) {
 
@@ -115,18 +114,18 @@ int main() {
 
 			LogoutResult logoutRet = {};
 			recv(_sock, (char*)&logoutRet, sizeof(logoutRet), 0);
-			printf("ÇëÇó½á¹û:%d\n", logoutRet.result);
+			printf("è¯·æ±‚ç»“æœ:%d\n", logoutRet.result);
 		}
 		else
 		{
-			printf("²»Ö§³Ö´ËÃüÁî!\n");
+			printf("ä¸æ”¯æŒæ­¤å‘½ä»¤!\n");
 			//send(_sock, sendBuf, strlen(sendBuf) + 1, 0);
 		}
 
 
 	}
 
-	//4. ¹Ø±ÕSocket
+	//4. å…³é—­Socket
 	closesocket(_sock);
 
 	WSACleanup();
