@@ -15,6 +15,7 @@ enum CMD
 	CMD_LOGIN_RESULT,
 	CMD_LOGOUT,
 	CMD_LOGOUT_RESULT,
+	CMD_NEW_USER_JOIN,
 	CMD_ERROR
 };
 
@@ -60,6 +61,15 @@ struct LogoutResult : public DataHeader
 		dataLength = sizeof(LogoutResult);
 	}
 	int result;
+};
+struct NewUserJoin : public DataHeader
+{
+	NewUserJoin()
+	{
+		cmd = CMD_NEW_USER_JOIN;
+		dataLength = sizeof(NewUserJoin);
+	}
+	int sock;
 };
 
 vector<SOCKET> g_clients;
@@ -169,7 +179,7 @@ int main()
 			FD_SET(g_clients[n], &fdRead);
 		}
 
-		timeval t = { 0,0 };//设置不停留,不阻塞
+		timeval t = { 1,0 };//设置最大停留时间,不阻塞
 
 		//开启select,开启后,系统内核会轮询队列
 		int ret = select(_sock + 1, &fdRead, &fdWrite, &fdExp, &t); //第一个参数,在Windows下无意义,最后一个参数设置为NULL时,则会一直阻塞在这里
@@ -178,6 +188,10 @@ int main()
 			printf("select任务结束.\n");
 			break;
 		}
+
+		//这里可以处理空闲时的其他业务...
+		printf("空闲时间,处理其他业务...\n");
+
 		//如果可读队列中的服务器socket就绪,即有新客户端连接
 		if (FD_ISSET(_sock, &fdRead))
 		{
@@ -193,6 +207,11 @@ int main()
 			if (INVALID_SOCKET == _cSock)
 			{
 				printf("错误,接收到无效客户端SOCKET\n");
+			}
+			for (int i = (int)g_clients.size() - 1; i >= 0; i--)
+			{
+				NewUserJoin userJoin;
+				send(g_clients[i], (const char*)&userJoin, sizeof(NewUserJoin), 0);
 			}
 			//将客户端socket添加进队列
 			g_clients.push_back(_cSock);
