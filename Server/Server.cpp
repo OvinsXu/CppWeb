@@ -97,7 +97,7 @@ int processor(SOCKET _cSock)
 		//判断逻辑
 		LoginResult ret;
 		ret.result = 1;
-		send(_cSock, (const char*)&ret, sizeof(ret), 0);
+		send(_cSock, (const char*)&ret, sizeof(LoginResult), 0);
 	}
 	break;
 	case CMD_LOGOUT:
@@ -107,7 +107,7 @@ int processor(SOCKET _cSock)
 		printf("收到的命令:CMD_LOGOUT,数据长度:%d,用户名:%s,密码:%s\n", logout->dataLength, logout->username, logout->password);
 		LogoutResult ret;
 		ret.result = 1;
-		send(_cSock, (const char*)&ret, sizeof(ret), 0);
+		send(_cSock, (const char*)&ret, sizeof(LogoutResult), 0);
 	}
 	break;
 	}
@@ -190,9 +190,9 @@ int main()
 		}
 
 		//这里可以处理空闲时的其他业务...
-		printf("空闲时间,处理其他业务...\n");
+		//printf("空闲时间,处理其他业务...\n");
 
-		//如果可读队列中的服务器socket就绪,即有新客户端连接
+		//判断描述符是否在集合中
 		if (FD_ISSET(_sock, &fdRead))
 		{
 			//先把状态清除

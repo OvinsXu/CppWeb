@@ -2,9 +2,28 @@
 #define _WINSOCK_DEPRECATED_NO_WARNINGS
 #define _CRT_SECURE_NO_WARNINGS
 
+
+#ifdef _WIN32
+
 #include <Windows.h>
-#include<WinSock2.h>
-#include<stdio.h>
+#include <WinSock2.h>
+
+#else
+
+#include <unistd.h>
+#include <arpa/inet.h>
+#include <string.h>
+#define SOCKET int
+#define INVALID_SOCKET  (SOCKET)(~0)
+#define SOCKET_ERROR            (-1)
+
+
+
+#endif
+
+#include <stdio.h>
+#include <thread>
+
 #pragma comment(lib,"ws2_32.lib")
 
 
@@ -70,9 +89,10 @@ struct NewUserJoin : public DataHeader
 	}
 	int sock;
 };
-
+bool g_bRun = true;
 int processor(SOCKET _cSock)
 {
+
 	//缓冲区
 	char szRecv[1024] = {};
 	// 5. 接收客户端数据
@@ -108,15 +128,60 @@ int processor(SOCKET _cSock)
 	}
 	break;
 	}
+	return 0;
+}
+
+void cmdThread(SOCKET _sock) {
+	while (true) {
+		char cmdBuf[256] = {};
+		scanf("%s", cmdBuf);
+		//4. 处理请求数据
+		if (0 == strcmp(cmdBuf, "exit")) {
+			g_bRun = false;
+			printf("退出\n");
+			return;
+		}
+		else if (0 == strcmp(cmdBuf, "login")) {
+			Login login;
+			strcpy(login.username, "xu");
+			strcpy(login.password, "1234");
+
+			send(_sock, (const char*)&login, sizeof(login), 0);
+
+			//LoginResult loginRet = {};
+			//recv(_sock, (char*)&loginRet, sizeof(loginRet), 0);
+			//printf("请求结果:%d\n", loginRet.result);
+		}
+		else if (0 == strcmp(cmdBuf, "logout")) {
+
+			Logout logout;
+			strcpy(logout.username, "xu");
+			strcpy(logout.password, "1234");
+
+			send(_sock, (const char*)&logout, sizeof(logout), 0);
+
+			//LogoutResult logoutRet = {};
+			//recv(_sock, (char*)&logoutRet, sizeof(logoutRet), 0);
+			//printf("请求结果:%d\n", logoutRet.result);
+		}
+		else
+		{
+			printf("不支持此命令!\n");
+			//send(_sock, sendBuf, strlen(sendBuf) + 1, 0);
+		}
+	}
+
 }
 
 
 int main() {
+
+#ifdef _WIN32
 	//启动Windows socket 2.x环境
 	WORD ver = MAKEWORD(2, 2);
 	WSADATA dat;
 	WSAStartup(ver, &dat);
-
+#endif
 	//1. 建立一个socket套接字
 	SOCKET _sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 	if (INVALID_SOCKET == _sock) {
@@ -130,8 +195,12 @@ int main() {
 	sockaddr_in _sin = {};
 	_sin.sin_family = AF_INET;
 	_sin.sin_port = htons(4567);
-	_sin.sin_addr.S_un.S_addr = inet_addr("127.0.0.1");
 
+#ifdef _WIN32
+	_sin.sin_addr.S_un.S_addr = inet_addr("127.0.0.1");
+#else
+	_sin.sin_addr.s_addr = inet_addr("172.26.224.1");
+#endif
 	if (SOCKET_ERROR == connect(_sock, (sockaddr*)&_sin, sizeof(sockaddr_in))) {
 		printf("连接服务器失败\n");
 	}
@@ -139,27 +208,26 @@ int main() {
 		printf("连接服务器成功\n");
 	}
 
+	//启动线程
+	std::thread t1(cmdThread, _sock);
+	t1.detach();
 
-
-	while (true) {
+	while (g_bRun) {
 
 		fd_set fdReads;
 		FD_ZERO(&fdReads);
 		FD_SET(_sock, &fdReads);
 
 		timeval t = { 1,0 };//设置最大停留时间,不阻塞
-		int ret = select(_sock, &fdReads, 0, 0, &t);
+		int ret = select(_sock + 1, &fdReads, 0, 0, &t);
 		if (ret < 0) {
 			printf("select任务结束\n");
 			break;
 		}
 
 		//这里可以处理空闲时的其他业务...
-		printf("空闲时间,处理其他业务...\n");
-		Login login;
-		strcpy(login.username, "xu");
-		strcpy(login.password, "1234");
-		send(_sock, (const char*)&login, sizeof(login), 0);
+		//printf("空闲时间,处理其他业务...\n");
+
 
 		if (FD_ISSET(_sock, &fdReads)) {
 			FD_CLR(_sock, &fdReads);
@@ -171,45 +239,16 @@ int main() {
 		}
 
 
-		//4. 处理请求数据
-		//if (0 == strcmp(cmdBuf, "exit")) {
-		//	break;
-		//}
-		//else if (0 == strcmp(cmdBuf, "login")) {
-		//	Login login;
-		//	strcpy(login.username, "xu");
-		//	strcpy(login.password, "1234");
 
-		//	send(_sock, (const char*)&login, sizeof(login), 0);
-
-		//	LoginResult loginRet = {};
-		//	recv(_sock, (char*)&loginRet, sizeof(loginRet), 0);
-		//	printf("请求结果:%d\n", loginRet.result);
-		//}
-		//else if (0 == strcmp(cmdBuf, "logout")) {
-
-		//	Logout logout;
-		//	strcpy(logout.username, "xu");
-		//	strcpy(logout.password, "1234");
-
-		//	send(_sock, (const char*)&logout, sizeof(logout), 0);
-
-		//	LogoutResult logoutRet = {};
-		//	recv(_sock, (char*)&logoutRet, sizeof(logoutRet), 0);
-		//	printf("请求结果:%d\n", logoutRet.result);
-		//}
-		//else
-		//{
-		//	printf("不支持此命令!\n");
-		//	//send(_sock, sendBuf, strlen(sendBuf) + 1, 0);
-		//}
 
 
 	}
-
+#ifdef _WIN32
 	//4. 关闭Socket
 	closesocket(_sock);
-
 	WSACleanup();
+#else
+	close(_sock);
+#endif
 	return 0;
 }
