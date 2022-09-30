@@ -1,13 +1,28 @@
+#ifdef _WIN32
+
 #define WIN32_LEAN_AND_MEAN // Windows.h和WinSock2.h中函数有重叠
 #define _WINSOCK_DEPRECATED_NO_WARNINGS
-
 #include <Windows.h>
 #include <WinSock2.h>
-#include <stdio.h>
-
-#include <vector>
-using namespace std;
 #pragma comment(lib, "ws2_32.lib")
+
+#else
+
+#include <unistd.h>
+#include <arpa/inet.h>
+#include <string.h>
+#define SOCKET int
+#define INVALID_SOCKET  (SOCKET)(~0)
+#define SOCKET_ERROR            (-1)
+
+
+#endif
+
+#include <stdio.h>
+#include <vector>
+
+using namespace std;
+
 
 enum CMD
 {
@@ -111,14 +126,17 @@ int processor(SOCKET _cSock)
 	}
 	break;
 	}
+	return 0;
 }
 
 int main()
 {
+#ifdef _WIN32
 	//启动Windows socket 2.x环境
 	WORD ver = MAKEWORD(2, 2);
 	WSADATA dat;
 	WSAStartup(ver, &dat);
+#endif
 
 	// 1. 建立一个socket套接字
 	SOCKET _sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
@@ -135,7 +153,11 @@ int main()
 	sockaddr_in _sin = {};
 	_sin.sin_family = AF_INET;
 	_sin.sin_port = htons(4567);
+#ifdef _WIN32
 	_sin.sin_addr.S_un.S_addr = INADDR_ANY;
+#else
+	_sin.sin_addr.s_addr = INADDR_ANY;
+#endif
 	if (SOCKET_ERROR == bind(_sock, (sockaddr*)&_sin, sizeof(_sin)))
 	{
 		printf("绑定端口错误\n");
@@ -172,17 +194,22 @@ int main()
 		FD_SET(_sock, &fdWrite);
 		FD_SET(_sock, &fdExp);
 
+		SOCKET maxSock = _sock;
+
 		//将客户端socket放入可读队列
 		// for (size_t n = 0; n < g_clients.size(); n++) { 每次比较都要调用size()方法,改写成-->
 		for (int n = (int)g_clients.size() - 1; n >= 0; n--)
 		{
 			FD_SET(g_clients[n], &fdRead);
+			if (maxSock < g_clients[n]) {
+				maxSock = g_clients[n];
+			}
 		}
 
 		timeval t = { 1,0 };//设置最大停留时间,不阻塞
 
 		//开启select,开启后,系统内核会轮询队列
-		int ret = select(_sock + 1, &fdRead, &fdWrite, &fdExp, &t); //第一个参数,在Windows下无意义,最后一个参数设置为NULL时,则会一直阻塞在这里
+		int ret = select((int)maxSock + 1, &fdRead, &fdWrite, &fdExp, &t); //第一个参数,在Windows下无意义,最后一个参数设置为NULL时,则会一直阻塞在这里
 		if (ret < 0)
 		{
 			printf("select任务结束.\n");
@@ -202,8 +229,11 @@ int main()
 			sockaddr_in clientAddr = {};
 			int nAddrLen = sizeof(sockaddr_in);
 			SOCKET _cSock = INVALID_SOCKET;
-
+#ifdef _WIN32
 			_cSock = accept(_sock, (sockaddr*)&clientAddr, &nAddrLen);
+#else
+			_cSock = accept(_sock, (sockaddr*)&clientAddr, (socklen_t*)&nAddrLen);
+#endif
 			if (INVALID_SOCKET == _cSock)
 			{
 				printf("错误,接收到无效客户端SOCKET\n");
@@ -219,16 +249,27 @@ int main()
 		}
 
 		//遍历可读队列
-		for (size_t n = 0; n < fdRead.fd_count; n++)
+		//for (size_t n = 0; n < fdRead.fd_count; n++)
+		//{
+		//	//如果客户端socket发生错误
+		//	if (-1 == processor(fdRead.fd_array[n]))
+		//	{
+		//		auto iter = find(g_clients.begin(), g_clients.end(), fdRead.fd_array[n]);
+		//		if (iter != g_clients.end())
+		//		{
+		//			//移除出错的客户端socket
+		//			g_clients.erase(iter);
+		//		}
+		//	}
+		//}
+		for (int i = (int)g_clients.size() - 1; i >= 0; i--)
 		{
-			//如果客户端socket发生错误
-			if (-1 == processor(fdRead.fd_array[n]))
-			{
-				auto iter = find(g_clients.begin(), g_clients.end(), fdRead.fd_array[n]);
-				if (iter != g_clients.end())
-				{
-					//移除出错的客户端socket
-					g_clients.erase(iter);
+			if (FD_ISSET(g_clients[i], &fdRead)) {
+				if (-1 == processor(g_clients[i])) {
+					auto iter = g_clients.begin();
+					if (iter != g_clients.end()) {
+						g_clients.erase(iter);
+					}
 				}
 			}
 		}
@@ -237,12 +278,20 @@ int main()
 	//结束时,关闭所有客户端连接
 	for (int n = (int)g_clients.size() - 1; n >= 0; n--)
 	{
+
+#ifdef _WIN32
 		closesocket(g_clients[n]);
+#else
+		close(g_clients[n]);
+#endif
 	}
 
-	// 0. 关闭Socket
+#ifdef _WIN32
+	//0. 关闭Socket
 	closesocket(_sock);
-
 	WSACleanup();
+#else
+	close(_sock);
+#endif
 	return 0;
 }

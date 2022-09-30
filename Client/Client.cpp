@@ -1,12 +1,12 @@
+#ifdef _WIN32
+
 #define WIN32_LEAN_AND_MEAN		//Windows.h和WinSock2.h中函数有重叠
 #define _WINSOCK_DEPRECATED_NO_WARNINGS
 #define _CRT_SECURE_NO_WARNINGS
 
-
-#ifdef _WIN32
-
 #include <Windows.h>
 #include <WinSock2.h>
+#pragma comment(lib,"ws2_32.lib")
 
 #else
 
@@ -17,14 +17,12 @@
 #define INVALID_SOCKET  (SOCKET)(~0)
 #define SOCKET_ERROR            (-1)
 
-
-
 #endif
 
 #include <stdio.h>
 #include <thread>
 
-#pragma comment(lib,"ws2_32.lib")
+
 
 
 enum CMD
@@ -197,7 +195,7 @@ int main() {
 	_sin.sin_port = htons(4567);
 
 #ifdef _WIN32
-	_sin.sin_addr.S_un.S_addr = inet_addr("127.0.0.1");
+	_sin.sin_addr.S_un.S_addr = inet_addr("172.26.238.123");
 #else
 	_sin.sin_addr.s_addr = inet_addr("172.26.224.1");
 #endif
@@ -219,7 +217,7 @@ int main() {
 		FD_SET(_sock, &fdReads);
 
 		timeval t = { 1,0 };//设置最大停留时间,不阻塞
-		int ret = select(_sock + 1, &fdReads, 0, 0, &t);
+		int ret = select((int)_sock + 1, &fdReads, 0, 0, &t);
 		if (ret < 0) {
 			printf("select任务结束\n");
 			break;
