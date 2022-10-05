@@ -5,6 +5,8 @@
 
 #define WIN32_LEAN_AND_MEAN // Windows.h和WinSock2.h中函数有重叠
 #define _WINSOCK_DEPRECATED_NO_WARNINGS
+#define _CRT_SECURE_NO_WARNINGS
+
 #include <Windows.h>
 #include <WinSock2.h>
 #pragma comment(lib, "ws2_32.lib")
@@ -215,22 +217,45 @@ public:
 		return _sock != INVALID_SOCKET;
 	}
 
+#define RECV_BUFF_SIZE 10240
+	//接收缓冲区
+	char _szRecv[RECV_BUFF_SIZE] = {};
+	//第二缓冲区
+	char _szMsgBuf[RECV_BUFF_SIZE * 10] = {};
+	//第二缓冲区,末标
+	int _lastPos = 0;
+
 	//接收数据
 	int RecvData(SOCKET _cSock)
 	{
-		//缓冲区
-		char szRecv[4096] = {};
+
 		// 5. 接收客户端数据
-		int nlen = recv(_cSock, szRecv, sizeof(DataHeader), 0);
-		DataHeader* header = (DataHeader*)szRecv;
+		int nlen = recv(_cSock, _szRecv, RECV_BUFF_SIZE, 0);
+
 		if (nlen <= 0)
 		{
-			printf("客户端已退出,任务结束!\n");
+			printf("SOCKET=<%d>客户端已退出,任务结束!\n", (int)_cSock);
 			return -1;
 		}
-		// 6. 处理客户端请求
-		recv(_cSock, szRecv + sizeof(DataHeader), header->dataLength - sizeof(DataHeader), 0);
-		OnNetMsg(_cSock, header);
+
+		memcpy(_szMsgBuf + _lastPos, _szRecv, nlen);	//放到第二缓存区
+		_lastPos += nlen;
+
+		while (_lastPos >= sizeof(DataHeader)) {	//如果接收数据含有完整消息头
+			DataHeader* header = (DataHeader*)_szMsgBuf;
+			if (_lastPos >= header->dataLength) {//如果接收数据含有完整消息报
+
+				int nSize = _lastPos - header->dataLength;
+				OnNetMsg(_cSock, header);
+
+				memcpy(_szMsgBuf, _szMsgBuf + header->dataLength, nSize);	//放到第二缓存区
+				_lastPos = nSize;
+			}
+			else {
+				break;
+			}
+		}
+
 		return 0;
 	}
 	//发送指定SOCKET数据
@@ -294,6 +319,7 @@ public:
 		// 0. 关闭Socket
 		closesocket(_sock);
 		WSACleanup();
+		_sock = INVALID_SOCKET;
 #else
 		close(_sock);
 #endif
