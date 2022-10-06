@@ -7,7 +7,7 @@
 #define _WINSOCK_DEPRECATED_NO_WARNINGS
 #define _CRT_SECURE_NO_WARNINGS
 
-#define FD_SETSIZE 1024 //WinSock2.h里默认64,Linux下默认1024,这里进行统一
+#define FD_SETSIZE 4096 //WinSock2.h里默认64,Linux下默认1024,这里进行统一
 
 
 #include <Windows.h>
@@ -28,6 +28,8 @@
 #include <stdio.h>
 #include <vector>
 #include "MessageHeader.hpp"
+
+#include"CELLTimestamp.hpp"
 
 #ifndef RECV_BUFF_SIZE
 #define RECV_BUFF_SIZE 10240
@@ -70,11 +72,14 @@ class Server
 private:
 	SOCKET _sock;
 	std::vector<ClientSocket*> _clients;
+	CELLTimestamp _tTime;
+	int _recvCnt;
 
 public:
 	Server()
 	{
 		_sock = INVALID_SOCKET;
+		_recvCnt = 0;
 	}
 
 	virtual ~Server()
@@ -318,6 +323,13 @@ public:
 
 	//响应消息
 	void OnNetMsg(SOCKET _cSock, DataHeader* header) {
+		_recvCnt++;//计数
+		auto t1 = _tTime.getElapsedTimeInSec();
+		if (t1 >= 1.0) {
+			printf("时间=<%lf>,收到数据包=<%d>\n", t1, _recvCnt);
+			_tTime.update();
+			_recvCnt = 0;
+		}
 		switch (header->cmd)
 		{
 		case CMD_LOGIN:
