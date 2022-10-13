@@ -170,11 +170,11 @@ public:
 		return 0;
 	}
 	//发送数据
-	int SendData(DataHeader* header) {
+	int SendData(DataHeader* header, int nLen) {
 		if (IsRun() && header) {
-			return send(_sock, (const char*)header, header->dataLength, 0);
+			return send(_sock, (const char*)header, nLen, 0);
 		}
-		return INVALID_SOCKET;
+		return (int)INVALID_SOCKET;
 
 	}
 	//响应消息

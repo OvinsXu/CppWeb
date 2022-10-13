@@ -20,8 +20,9 @@ int main()
 	server.initSocket();
 	server.Bind(nullptr, 4567);
 	server.Listen(5);
+	server.Start(4);
 
-	//启动线程
+	//启动UI线程
 	std::thread t1(cmdThread, &server);
 	t1.detach();
 

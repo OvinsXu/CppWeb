@@ -23,8 +23,5 @@
     <ClInclude Include="Client.hpp">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="MessageHeader.hpp">
-      <Filter>头文件</Filter>
-    </ClInclude>
   </ItemGroup>
 </Project>

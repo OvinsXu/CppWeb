@@ -1,30 +1,14 @@
 #include"Client.hpp"
 #include <thread>
 
-void cmdThread(Client* client) {
+void cmdThread() {
 	while (true) {
 		char cmdBuf[256] = {};
 		scanf("%s", cmdBuf);
 		//4. 处理请求数据
 		if (0 == strcmp(cmdBuf, "exit")) {
-			client->Close();
 			printf("退出\n");
-			return;
-		}
-		else if (0 == strcmp(cmdBuf, "login")) {
-			Login login;
-			strcpy(login.username, "xu");
-			strcpy(login.password, "1234");
-
-			client->SendData(&login);
-		}
-		else if (0 == strcmp(cmdBuf, "logout")) {
-
-			Logout logout;
-			strcpy(logout.username, "xu");
-			strcpy(logout.password, "1234");
-
-			client->SendData(&logout);
+			break;
 		}
 		else
 		{
@@ -33,48 +17,64 @@ void cmdThread(Client* client) {
 	}
 }
 
+//一个线程的客户端数量
+const int cCnt = 1000;
+//线程数量
+const int tCnt = 4;
+
+//运行标志
+bool isRun = true;
+
+
+
+
+void sendThread(int id) {
+	Client* clients[cCnt];
+	for (int n = 0; n < cCnt; n++) {
+		clients[n] = new Client();
+		clients[n]->Connect("127.0.0.1", 4567);// 172.18.128.1  172.18.143.19      127.0.0.1  192.168.137.10
+	}
+
+	std::chrono::microseconds t(3000);
+	std::this_thread::sleep_for(t);
+
+	//定义测试数据
+	Login test[10];
+
+	const int nLen = sizeof(test);
+	//发送测试数据
+	while (isRun) {
+		for (int n = 0; n < cCnt; n++) {
+			//printf("线程id=<%d>", id);
+			clients[n]->SendData(test, nLen);
+		}
+	}
+	for (int i = 0; i < cCnt; i++)
+	{
+		clients[i]->Close();
+	}
+}
+
 int main() {
 
-	//测试,Windows11专业版:30 000包/s左右,WSL2 Ubuntu :100 000包/s左右
-	//const int cCnt = 100;
-	//Client* clients[cCnt];
-	//for (int n = 0; n < cCnt; n++) {
-	//	clients[n] = new Client();
-	//	clients[n]->Connect("127.0.0.1", 4567);// 172.18.128.1  172.18.143.19      127.0.0.1
-	//}
-	//struct Test : public DataHeader
-	//{
-	//	Test()
-	//	{
-	//		cmd = 100;
-	//		dataLength = sizeof(Test);
-	//	}
-	//	char username[32];
-	//	char password[32];
-	//	char test[956];
-	//};
-	//Test  test;
-	//strcpy(test.username, "test");
-	//strcpy(test.password, "tttt");
-
-	//while (1) {
-	//	for (int n = 0; n < cCnt; n++) {
-	//		clients[n]->SendData(&test);
-	//	}
-	//}
-
-
-	Client client;
-	client.Connect("127.0.0.1", 4567);
-
-	//启动线程
-	std::thread t1(cmdThread, &client);
+	//启动UI线程
+	std::thread t1(cmdThread);
 	t1.detach();
 
-	while (client.IsRun()) {
-		client.OnRun();
+	//启动发送线程
+	for (int i = 0; i < tCnt; i++)
+	{
+		std::thread t(sendThread, i + 1);
+		t.detach();
 	}
-	client.Close();
+
+	while (isRun) {
+		//Sleep(100);
+	}
+
+
+
+
 
 	return 0;
 }
